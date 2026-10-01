@@ -1,0 +1,120 @@
+FROM node:22-bookworm-slim
+
+ARG TZ=UTC
+
+ENV TZ=${TZ}
+ENV DEBIAN_FRONTEND=noninteractive
+
+# =========================================================
+# Claude Code
+# =========================================================
+
+ENV CLAUDE_CONFIG_DIR=/home/node/.claude
+
+# =========================================================
+# Workspace
+# =========================================================
+
+ENV WORKSPACE_DIR=/workspace
+
+# =========================================================
+# Runtime
+# =========================================================
+
+ENV SHELL=/bin/bash
+ENV NODE_ENV=production
+ENV PATH="/home/node/.local/bin:${PATH}"
+
+# =========================================================
+# CloudCLI
+# =========================================================
+
+ENV HOST=0.0.0.0
+ENV PORT=3001
+
+# =========================================================
+# System dependencies
+# =========================================================
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    git-lfs \
+    gh \
+    jq \
+    less \
+    nano \
+    vim \
+    unzip \
+    zip \
+    procps \
+    sudo \
+    openssh-client \
+    ripgrep \
+    fzf \
+    zsh \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# =========================================================
+# Create application directories
+# =========================================================
+
+RUN mkdir -p \
+    /workspace \
+    /home/node/.claude \
+    && chown -R node:node \
+    /workspace \
+    /home/node/.claude
+
+# =========================================================
+# Switch to non-root user
+# =========================================================
+
+USER node
+
+WORKDIR /workspace
+
+# =========================================================
+# Install Claude Code
+# =========================================================
+
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Verify Claude Code installation
+RUN claude --version
+
+# =========================================================
+# Install CloudCLI
+#
+# npm global installation requires write access to
+# /usr/local/lib/node_modules, so this step runs as root.
+# =========================================================
+
+USER root
+
+RUN npm install -g @cloudcli-ai/cloudcli
+
+# Verify CloudCLI installation
+RUN cloudcli --version || true
+
+# =========================================================
+# Return to non-root user
+# =========================================================
+
+USER node
+
+WORKDIR /workspace
+
+# =========================================================
+# Network
+# =========================================================
+
+EXPOSE 3001
+
+# =========================================================
+# Start CloudCLI
+# =========================================================
+
+CMD ["cloudcli"]
